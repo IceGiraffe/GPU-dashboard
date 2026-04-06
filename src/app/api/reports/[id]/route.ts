@@ -19,7 +19,7 @@ export async function DELETE(
       scope: "report-delete",
       key: clientIp,
       limit: 10,
-      windowMs: 10 * 60 * 1000,
+      windowMs: 60 * 1000,
     });
     assertAdminAccess(request);
 

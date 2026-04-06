@@ -1,1 +1,53 @@
-[]
+[
+  {
+    "id": "9035b21f-675a-4567-a5a4-2e2295650fbe",
+    "action": "delete_report",
+    "reportId": "0edc428d-3e35-43f8-9d87-0dc971aa1721",
+    "actor": "admin-token:::1",
+    "payload": {
+      "id": "0edc428d-3e35-43f8-9d87-0dc971aa1721",
+      "username": "1",
+      "task": "2",
+      "gpuCount": 8,
+      "durationHours": 12,
+      "startAt": "2026-04-06T14:57:00.000Z",
+      "endAt": "2026-04-07T02:57:00.000Z",
+      "createdAt": "2026-04-06T14:58:06.257Z"
+    },
+    "createdAt": "2026-04-06T15:24:09.224Z"
+  },
+  {
+    "id": "b884877c-8625-4449-b7d6-e043cc89dabb",
+    "action": "delete_report",
+    "reportId": "cc2b262d-2174-4244-937e-d96d2b36569c",
+    "actor": "admin-token:::1",
+    "payload": {
+      "id": "cc2b262d-2174-4244-937e-d96d2b36569c",
+      "username": "1",
+      "task": "2",
+      "gpuCount": 20,
+      "durationHours": 12,
+      "startAt": "2026-04-06T14:58:00.000Z",
+      "endAt": "2026-04-07T02:58:00.000Z",
+      "createdAt": "2026-04-06T14:58:19.433Z"
+    },
+    "createdAt": "2026-04-06T15:24:16.898Z"
+  },
+  {
+    "id": "bd6f245a-1c0d-4c49-8204-52b3f2ff21d7",
+    "action": "delete_report",
+    "reportId": "f810a279-3da0-4eb5-8620-fe3405004667",
+    "actor": "admin-token:::1",
+    "payload": {
+      "id": "f810a279-3da0-4eb5-8620-fe3405004667",
+      "username": "1",
+      "task": "2",
+      "gpuCount": 8,
+      "durationHours": 12,
+      "startAt": "2026-04-06T15:16:00.000Z",
+      "endAt": "2026-04-07T03:16:00.000Z",
+      "createdAt": "2026-04-06T15:16:47.748Z"
+    },
+    "createdAt": "2026-04-06T15:24:20.175Z"
+  }
+]

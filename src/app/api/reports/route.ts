@@ -14,8 +14,8 @@ export async function POST(request: Request) {
     enforceRateLimit({
       scope: "report-write",
       key: clientIp,
-      limit: 20,
-      windowMs: 5 * 60 * 1000,
+      limit: 10,
+      windowMs: 60 * 1000,
     });
     assertWriteAccess(request);
 
