@@ -1,0 +1,376 @@
+.page {
+  width: min(1280px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 18px 0 36px;
+  display: grid;
+  gap: 16px;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background:
+    linear-gradient(145deg, rgba(253, 254, 255, 0.95), rgba(240, 246, 250, 0.86)),
+    var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  top: -40px;
+  right: -60px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(33, 118, 166, 0.18), transparent 62%);
+  pointer-events: none;
+}
+
+.heroTop {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+.intro {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.heroTitleRow {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.heroForm {
+  position: relative;
+  z-index: 1;
+}
+
+.title {
+  margin: 0;
+  max-width: none;
+  font-size: clamp(1.7rem, 2.6vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid rgba(45, 71, 89, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.pill strong {
+  color: var(--text);
+}
+
+.stats {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.statCard,
+.averageCard {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.statLabel {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.statValue {
+  font-size: clamp(1.45rem, 1.7vw, 2.2rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.statHint {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.panel {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.panelHeader h2 {
+  margin: 0;
+  font-size: 1.18rem;
+}
+
+.panelHeader p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.averageGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legendSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(78, 58, 35, 0.12);
+}
+
+.legendUsed {
+  background: linear-gradient(135deg, rgba(33, 118, 166, 0.24), rgba(20, 81, 111, 0.56));
+}
+
+.legendFree {
+  background: linear-gradient(135deg, rgba(33, 128, 111, 0.06), rgba(33, 128, 111, 0.18));
+}
+
+.legendWarning {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.heatmapScroll {
+  overflow: auto;
+  padding-bottom: 2px;
+}
+
+.heatmapBoard {
+  min-width: 700px;
+  display: grid;
+  gap: 4px;
+}
+
+.axisHeader,
+.heatmapRow {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+}
+
+.axisCorner,
+.gpuLabel {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-align: right;
+}
+
+.timeAxis,
+.heatmapCells {
+  display: grid;
+  gap: 3px;
+  grid-template-columns: repeat(24, minmax(18px, 1fr));
+}
+
+.timeLabel {
+  min-width: 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+.timeLabelOverbooked {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.heatmapBody {
+  display: grid;
+  gap: 3px;
+}
+
+.heatmapCell {
+  height: 8px;
+  border-radius: 3px;
+  border: 1px solid rgba(78, 58, 35, 0.08);
+}
+
+.heatmapCellUsed {
+  background: linear-gradient(135deg, rgba(33, 118, 166, 0.28), rgba(20, 81, 111, 0.64));
+}
+
+.heatmapCellFree {
+  background: linear-gradient(135deg, rgba(33, 128, 111, 0.05), rgba(33, 128, 111, 0.14));
+}
+
+.main {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(340px, 0.95fr);
+  align-items: start;
+}
+
+.stack {
+  display: grid;
+  gap: 16px;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.cardTop h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.cardActions {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.badge {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(33, 118, 166, 0.12);
+  color: var(--accent-strong);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.cardMeta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.empty {
+  margin: 0;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px dashed rgba(78, 58, 35, 0.2);
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.44);
+  font-size: 0.88rem;
+}
+
+.footnote {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 1120px) {
+  .main {
+    grid-template-columns: 1fr;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .page {
+    width: min(100vw - 18px, 100%);
+    padding-top: 10px;
+  }
+
+  .hero,
+  .panel {
+    padding: 16px;
+  }
+
+  .stats,
+  .averageGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .panelHeader {
+    display: grid;
+  }
+
+  .heroTitleRow,
+  .meta {
+    justify-content: start;
+  }
+
+  .heatmapBoard {
+    min-width: 560px;
+  }
+}
