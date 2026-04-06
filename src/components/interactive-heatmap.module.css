@@ -1,0 +1,133 @@
+.root {
+  display: grid;
+  gap: 10px;
+}
+
+.toolbar {
+  display: grid;
+  gap: 8px;
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.controlGroup {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.controlButton {
+  cursor: pointer;
+  border: 1px solid rgba(45, 71, 89, 0.12);
+  border-radius: 999px;
+  min-height: 30px;
+  padding: 0 10px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.68);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.controlButtonActive {
+  color: #f7fbfe;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  border-color: transparent;
+}
+
+.hoverSummary {
+  margin: 0;
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.scrollViewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+}
+
+.spacer {
+  position: relative;
+}
+
+.stickyLayer {
+  position: sticky;
+  left: 0;
+  top: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.currentTimeMarker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    180deg,
+    rgba(217, 90, 72, 0.24),
+    rgba(217, 90, 72, 0.92),
+    rgba(217, 90, 72, 0.24)
+  );
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.34),
+    0 0 18px rgba(217, 90, 72, 0.18);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.axisHeader,
+.body {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: start;
+}
+
+.axisCorner {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-align: right;
+}
+
+.headerCanvasWrap,
+.canvasWrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.gpuAxis {
+  position: relative;
+}
+
+.gpuAxisLabel {
+  position: absolute;
+  right: 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-align: right;
+  transform: translateY(-50%);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.canvas {
+  display: block;
+}
+
+@media (max-width: 760px) {
+  .controls {
+    justify-content: start;
+  }
+
+  .hoverSummary {
+    font-size: 0.76rem;
+  }
+}

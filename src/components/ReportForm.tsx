@@ -10,6 +10,11 @@ function getDefaultStartTime() {
   return date.toISOString().slice(0, 16);
 }
 
+function toIsoStringFromLocalInput(value: string) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+}
+
 export function ReportForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -38,7 +43,7 @@ export function ReportForm() {
         task: formState.task,
         gpuCount: Number(formState.gpuCount),
         durationHours: Number(formState.durationHours),
-        startAt: formState.startAt,
+        startAt: toIsoStringFromLocalInput(formState.startAt),
       }),
     });
 
@@ -74,7 +79,7 @@ export function ReportForm() {
           <input
             required
             maxLength={32}
-            placeholder="例如：wangfy"
+            placeholder="Alice"
             value={formState.username}
             onChange={(event) =>
               setFormState((current) => ({ ...current, username: event.target.value }))
@@ -87,7 +92,7 @@ export function ReportForm() {
           <input
             required
             maxLength={120}
-            placeholder="例如：llm-pretrain-stage2"
+            placeholder="Fairy"
             value={formState.task}
             onChange={(event) =>
               setFormState((current) => ({ ...current, task: event.target.value }))

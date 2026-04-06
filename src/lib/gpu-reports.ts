@@ -44,15 +44,31 @@ export type UtilizationWindow = {
 
 export type HeatmapColumn = {
   label: string;
+  dateLabel: string | null;
   slotStart: string;
   slotEnd: string;
   averageUsedGpuCount: number;
   occupiedGpuCount: number;
   overbookedGpuCount: number;
+  taskIds: Array<string | null>;
+  intensities: number[];
+};
+
+export type HeatmapTask = {
+  id: string;
+  task: string;
+  username: string;
+  gpuCount: number;
+  startAt: string;
+  endAt: string;
+  color: string;
 };
 
 export type HeatmapData = {
   columns: HeatmapColumn[];
+  tasks: Record<string, HeatmapTask>;
+  currentHourIndex: number;
+  totalHours: number;
   peakAverageUsedGpuCount: number;
   peakOverbookedGpuCount: number;
 };
@@ -62,10 +78,20 @@ const DATA_FILE = path.join(DATA_DIR, "reports.json");
 const BLOB_PREFIX = "gpu-reports/";
 const HOUR_MS = 60 * 60 * 1000;
 const REPORTS_TABLE = "gpu_usage_reports";
+const DISPLAY_TIME_ZONE = process.env.DISPLAY_TIME_ZONE ?? "Asia/Shanghai";
+const HEATMAP_PAST_HOURS = 24 * 7;
+const HEATMAP_FUTURE_HOURS = 24 * 7;
+const HEATMAP_TOTAL_HOURS = HEATMAP_PAST_HOURS + HEATMAP_FUTURE_HOURS;
 
 type NormalizedReport = UsageReport & {
   startMs: number;
   endMs: number;
+};
+
+type SlotOverlap = {
+  report: NormalizedReport;
+  overlapMs: number;
+  overlapRatio: number;
 };
 
 type ReportRow = {
@@ -114,6 +140,71 @@ function canUseLocalFileStore() {
 
 function safeTrim(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function getTimeZoneOffsetMinutes(date: Date, timeZone: string) {
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "longOffset",
+  }).formatToParts(date);
+  const value = formatted.find((part) => part.type === "timeZoneName")?.value ?? "GMT+00:00";
+  const match = value.match(/GMT([+-])(\d{2}):(\d{2})/);
+
+  if (!match) {
+    return 0;
+  }
+
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2]);
+  const minutes = Number(match[3]);
+  return sign * (hours * 60 + minutes);
+}
+
+function alignHourStartMs(date: Date, timeZone: string) {
+  const offsetMinutes = getTimeZoneOffsetMinutes(date, timeZone);
+  const localMs = date.getTime() + offsetMinutes * 60 * 1000;
+  const alignedLocalMs = Math.floor(localMs / HOUR_MS) * HOUR_MS;
+  return alignedLocalMs - offsetMinutes * 60 * 1000;
+}
+
+function formatHourLabel(date: string | Date) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: DISPLAY_TIME_ZONE,
+  }).format(new Date(date));
+}
+
+function formatMonthDayLabel(date: string | Date) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
+  }).format(new Date(date));
+}
+
+function isStartOfDayInTimeZone(date: string | Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: DISPLAY_TIME_ZONE,
+  }).formatToParts(new Date(date));
+  const hour = parts.find((part) => part.type === "hour")?.value;
+  const minute = parts.find((part) => part.type === "minute")?.value;
+  return hour === "00" && minute === "00";
+}
+
+function getTaskColor(seed: string) {
+  let hash = 0;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+
+  const hue = hash % 360;
+  return `hsl(${hue} 62% 44%)`;
 }
 
 function parsePositiveNumber(value: unknown) {
@@ -492,6 +583,7 @@ export function formatDateTime(date: string) {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(new Date(date));
 }
 
@@ -571,32 +663,90 @@ function buildHeatmap(
   totalGpuCount: number,
   now: Date,
 ): HeatmapData {
-  const alignedNow = new Date(now);
-  alignedNow.setMinutes(0, 0, 0);
-  const rangeEndMs = alignedNow.getTime();
+  const currentHourStartMs = alignHourStartMs(now, DISPLAY_TIME_ZONE);
   const columns: HeatmapColumn[] = [];
+  const tasks: Record<string, HeatmapTask> = {};
+  const currentHourIndex = HEATMAP_PAST_HOURS;
 
-  for (let index = 0; index < 24; index += 1) {
-    const slotEndMs = rangeEndMs - (23 - index) * HOUR_MS;
-    const slotStartMs = slotEndMs - HOUR_MS;
+  for (let index = 0; index < HEATMAP_TOTAL_HOURS; index += 1) {
+    const slotStartMs = currentHourStartMs + (index - currentHourIndex) * HOUR_MS;
+    const slotEndMs = slotStartMs + HOUR_MS;
     const averageUsedGpuCount = getAverageUsedGpuCount(reports, slotStartMs, slotEndMs);
+    const overlaps: SlotOverlap[] = reports
+      .map((report) => {
+        const overlapMs = getOverlapMs(slotStartMs, slotEndMs, report.startMs, report.endMs);
+
+        return {
+          report,
+          overlapMs,
+          overlapRatio: overlapMs / HOUR_MS,
+        };
+      })
+      .filter((item) => item.overlapMs > 0)
+      .sort((left, right) => {
+        if (left.report.startMs !== right.report.startMs) {
+          return left.report.startMs - right.report.startMs;
+        }
+
+        if (left.report.endMs !== right.report.endMs) {
+          return left.report.endMs - right.report.endMs;
+        }
+
+        return left.report.id.localeCompare(right.report.id);
+      });
+
+    const taskIds = Array<string | null>(totalGpuCount).fill(null);
+    const intensities = Array<number>(totalGpuCount).fill(0);
+    let cursor = 0;
+
+    overlaps.forEach(({ report, overlapRatio }) => {
+      if (!tasks[report.id]) {
+        tasks[report.id] = {
+          id: report.id,
+          task: report.task,
+          username: report.username,
+          gpuCount: report.gpuCount,
+          startAt: report.startAt,
+          endAt: report.endAt,
+          color: getTaskColor(`${report.username}:${report.task}:${report.id}`),
+        };
+      }
+
+      for (
+        let allocationIndex = 0;
+        allocationIndex < report.gpuCount && cursor < totalGpuCount;
+        allocationIndex += 1
+      ) {
+        taskIds[cursor] = report.id;
+        intensities[cursor] = overlapRatio;
+        cursor += 1;
+      }
+    });
+
+    const scheduledGpuCount = overlaps.reduce((sum, item) => sum + item.report.gpuCount, 0);
+    const dateLabel =
+      index === 0 || isStartOfDayInTimeZone(new Date(slotStartMs))
+        ? formatMonthDayLabel(new Date(slotStartMs))
+        : null;
 
     columns.push({
-      label: new Intl.DateTimeFormat("zh-CN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).format(new Date(slotStartMs)),
+      label: formatHourLabel(new Date(slotStartMs)),
+      dateLabel,
       slotStart: new Date(slotStartMs).toISOString(),
       slotEnd: new Date(slotEndMs).toISOString(),
       averageUsedGpuCount,
-      occupiedGpuCount: Math.min(Math.ceil(averageUsedGpuCount), totalGpuCount),
-      overbookedGpuCount: Math.max(Math.ceil(averageUsedGpuCount - totalGpuCount), 0),
+      occupiedGpuCount: Math.min(scheduledGpuCount, totalGpuCount),
+      overbookedGpuCount: Math.max(scheduledGpuCount - totalGpuCount, 0),
+      taskIds,
+      intensities,
     });
   }
 
   return {
     columns,
+    tasks,
+    currentHourIndex,
+    totalHours: HEATMAP_TOTAL_HOURS,
     peakAverageUsedGpuCount: columns.reduce(
       (max, column) => Math.max(max, column.averageUsedGpuCount),
       0,

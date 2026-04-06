@@ -1,10 +1,10 @@
 import { DeleteReportButton } from "@/components/DeleteReportButton";
+import { InteractiveHeatmap } from "@/components/InteractiveHeatmap";
 import { ReportForm } from "@/components/ReportForm";
 import {
   formatDateTime,
   getDashboardData,
   getStorageModeLabel,
-  type HeatmapColumn,
 } from "@/lib/gpu-reports";
 import styles from "./page.module.css";
 
@@ -20,17 +20,8 @@ function formatAverageGpu(value: number) {
   return average.endsWith(".0") ? average.slice(0, -2) : average;
 }
 
-function isCellOccupied(column: HeatmapColumn, rowIndex: number) {
-  return rowIndex < column.occupiedGpuCount;
-}
-
-function shouldShowGpuLabel(rowIndex: number, totalGpuCount: number) {
-  return rowIndex === 0 || rowIndex === totalGpuCount - 1 || (rowIndex + 1) % 8 === 0;
-}
-
 export default async function HomePage() {
   const data = await getDashboardData();
-  const gpuRows = Array.from({ length: data.totalGpuCount }, (_, index) => index);
 
   return (
     <main className={styles.page}>
@@ -109,8 +100,8 @@ export default async function HomePage() {
 
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
-          <h2>近 24 小时 GPU 卡位 × 时间图</h2>
-          <p>按整点小时汇总；由于未绑定物理卡号，这里展示的是虚拟卡位映射。</p>
+          <h2>GPU 卡位 × 时间图</h2>
+          <p>默认从当前整点起显示未来 24 小时，可扩展查看 3 天和 7 天。</p>
         </div>
 
         <div className={styles.legend}>
@@ -129,54 +120,10 @@ export default async function HomePage() {
           ) : null}
         </div>
 
-        <div className={styles.heatmapScroll}>
-          <div className={styles.heatmapBoard}>
-            <div className={styles.axisHeader}>
-              <div className={styles.axisCorner}>GPU</div>
-              <div className={styles.timeAxis}>
-                {data.heatmap.columns.map((column) => (
-                  <div
-                    className={`${styles.timeLabel} ${
-                      column.overbookedGpuCount > 0 ? styles.timeLabelOverbooked : ""
-                    }`}
-                    key={column.slotStart}
-                    title={`${column.label} 平均占用 ${formatAverageGpu(column.averageUsedGpuCount)} 卡`}
-                  >
-                    {column.label}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className={styles.heatmapBody}>
-              {gpuRows.map((rowIndex) => (
-                <div className={styles.heatmapRow} key={rowIndex}>
-                  <div className={styles.gpuLabel}>
-                    {shouldShowGpuLabel(rowIndex, data.totalGpuCount) ? rowIndex + 1 : ""}
-                  </div>
-
-                  <div className={styles.heatmapCells}>
-                    {data.heatmap.columns.map((column) => (
-                      <div
-                        className={`${styles.heatmapCell} ${
-                          isCellOccupied(column, rowIndex) ? styles.heatmapCellUsed : styles.heatmapCellFree
-                        }`}
-                        key={`${rowIndex}-${column.slotStart}`}
-                        title={`GPU ${rowIndex + 1} | ${column.label} | 平均占用 ${formatAverageGpu(
-                          column.averageUsedGpuCount,
-                        )} 卡`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <InteractiveHeatmap heatmap={data.heatmap} totalGpuCount={data.totalGpuCount} />
 
         <p className={styles.footnote}>
-          热力图中的“已占用”表示该小时内存在对应数量的汇报用卡，按虚拟卡位顺序铺排，便于快速判断整体容量走势；并不代表某张物理 GPU
-          在该小时一定被同一任务占用。
+          热力图中的颜色表示当前小时内被映射到该虚拟卡位的任务。由于未绑定物理卡号，这里展示的是虚拟卡位分配，而不是物理 GPU 编号。
         </p>
       </section>
 
@@ -285,11 +232,6 @@ export default async function HomePage() {
                 <p className={styles.empty}>还没有任何汇报记录。</p>
               )}
             </div>
-
-            <p className={styles.footnote}>
-              部署到 Vercel 后建议配置 <code>BLOB_READ_WRITE_TOKEN</code>，这样汇报记录会持久保存。未配置时，本地开发使用
-              <code>data/reports.json</code>。
-            </p>
           </section>
         </div>
       </section>

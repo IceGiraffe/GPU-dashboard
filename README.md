@@ -26,9 +26,10 @@ npm run dev
 
 1. 导入该项目到 Vercel
 2. 添加环境变量 `TOTAL_GPU_COUNT=64`
-3. 在 Vercel Marketplace 安装一个 Postgres 集成，例如 Neon
-4. 让集成为项目注入数据库连接环境变量
-5. 重新部署项目
+3. 添加环境变量 `DISPLAY_TIME_ZONE=Asia/Shanghai`
+4. 在 Vercel Marketplace 安装一个 Postgres 集成，例如 Neon
+5. 让集成为项目注入数据库连接环境变量
+6. 重新部署项目
 
 代码会优先读取这些环境变量：
 
