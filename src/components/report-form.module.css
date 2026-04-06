@@ -41,6 +41,7 @@
     minmax(88px, 0.5fr)
     minmax(88px, 0.55fr)
     minmax(180px, 0.95fr)
+    minmax(140px, 0.8fr)
     auto;
   align-items: end;
 }

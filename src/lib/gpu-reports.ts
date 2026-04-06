@@ -72,11 +72,27 @@ export type HeatmapData = {
   peakOverbookedGpuCount: number;
 };
 
+type DeleteReportOptions = {
+  actor: string;
+};
+
+type DeletionAuditEntry = {
+  id: string;
+  action: "delete_report";
+  reportId: string;
+  actor: string;
+  payload: UsageReport;
+  createdAt: string;
+};
+
 const DATA_DIR = path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "reports.json");
+const AUDIT_FILE = path.join(DATA_DIR, "audit-log.json");
 const BLOB_PREFIX = "gpu-reports/";
+const AUDIT_BLOB_PREFIX = "gpu-audit/";
 const HOUR_MS = 60 * 60 * 1000;
 const REPORTS_TABLE = "gpu_usage_reports";
+const AUDIT_TABLE = "gpu_usage_audit_log";
 const DISPLAY_TIME_ZONE = process.env.DISPLAY_TIME_ZONE ?? "Asia/Shanghai";
 const HEATMAP_PAST_HOURS = 24 * 7;
 const HEATMAP_FUTURE_HOURS = 24 * 7;
@@ -91,6 +107,11 @@ type SlotOverlap = {
   report: NormalizedReport;
   overlapMs: number;
   overlapRatio: number;
+};
+
+type ReportAllocation = {
+  startRow: number | null;
+  visibleGpuCount: number;
 };
 
 type ReportRow = {
@@ -290,6 +311,12 @@ async function ensureLocalStore() {
   } catch {
     await writeFile(DATA_FILE, "[]\n", "utf8");
   }
+
+  try {
+    await readFile(AUDIT_FILE, "utf8");
+  } catch {
+    await writeFile(AUDIT_FILE, "[]\n", "utf8");
+  }
 }
 
 async function readLocalReports() {
@@ -332,6 +359,38 @@ async function readBlobReports() {
 async function saveBlobReport(report: UsageReport) {
   const pathname = `${BLOB_PREFIX}${report.createdAt.slice(0, 10)}/${report.id}.json`;
   await put(pathname, JSON.stringify(report, null, 2), {
+    access: "public",
+    addRandomSuffix: false,
+    contentType: "application/json; charset=utf-8",
+  });
+}
+
+function createDeletionAuditEntry(report: UsageReport, actor: string): DeletionAuditEntry {
+  return {
+    id: crypto.randomUUID(),
+    action: "delete_report",
+    reportId: report.id,
+    actor,
+    payload: report,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+async function appendLocalAuditEntry(entry: DeletionAuditEntry) {
+  if (!canUseLocalFileStore()) {
+    throw new Error("当前部署未配置可写审计存储。");
+  }
+
+  await ensureLocalStore();
+  const raw = await readFile(AUDIT_FILE, "utf8");
+  const entries = JSON.parse(raw) as DeletionAuditEntry[];
+  const nextEntries = Array.isArray(entries) ? [...entries, entry] : [entry];
+  await writeFile(AUDIT_FILE, `${JSON.stringify(nextEntries, null, 2)}\n`, "utf8");
+}
+
+async function saveBlobAuditEntry(entry: DeletionAuditEntry) {
+  const pathname = `${AUDIT_BLOB_PREFIX}${entry.createdAt.slice(0, 10)}/${entry.id}.json`;
+  await put(pathname, JSON.stringify(entry, null, 2), {
     access: "public",
     addRandomSuffix: false,
     contentType: "application/json; charset=utf-8",
@@ -391,6 +450,27 @@ async function ensurePostgresStore() {
     await sql.unsafe(`
       create index if not exists ${REPORTS_TABLE}_end_at_idx
       on ${REPORTS_TABLE} (end_at)
+    `);
+
+    await sql.unsafe(`
+      create table if not exists ${AUDIT_TABLE} (
+        id text primary key,
+        action text not null,
+        report_id text not null,
+        actor text not null,
+        payload_json jsonb not null,
+        created_at timestamptz not null
+      )
+    `);
+
+    await sql.unsafe(`
+      create index if not exists ${AUDIT_TABLE}_report_id_idx
+      on ${AUDIT_TABLE} (report_id)
+    `);
+
+    await sql.unsafe(`
+      create index if not exists ${AUDIT_TABLE}_created_at_idx
+      on ${AUDIT_TABLE} (created_at desc)
     `);
   })();
 
@@ -488,7 +568,7 @@ export async function saveReport(report: UsageReport) {
   await writeLocalReports(reports);
 }
 
-export async function deleteReport(reportId: string) {
+export async function deleteReport(reportId: string, options: DeleteReportOptions) {
   const normalizedReportId = safeTrim(reportId);
 
   if (!normalizedReportId) {
@@ -498,15 +578,45 @@ export async function deleteReport(reportId: string) {
   if (isPostgresEnabled()) {
     await ensurePostgresStore();
     const sql = getPostgresClient();
-    const rows = await sql`
-      delete from gpu_usage_reports
-      where id = ${normalizedReportId}
-      returning id
-    `;
+    await sql.begin(async (tx) => {
+      const rows = await tx<ReportRow[]>`
+        delete from gpu_usage_reports
+        where id = ${normalizedReportId}
+        returning
+          id,
+          username,
+          task,
+          gpu_count,
+          duration_hours,
+          start_at,
+          end_at,
+          created_at
+      `;
 
-    if (!rows.length) {
-      throw new Error("未找到对应的汇报记录。");
-    }
+      if (!rows.length) {
+        throw new Error("未找到对应的汇报记录。");
+      }
+
+      const report = mapRowToUsageReport(rows[0]);
+      const auditEntry = createDeletionAuditEntry(report, options.actor);
+      await tx`
+        insert into gpu_usage_audit_log (
+          id,
+          action,
+          report_id,
+          actor,
+          payload_json,
+          created_at
+        ) values (
+          ${auditEntry.id},
+          ${auditEntry.action},
+          ${auditEntry.reportId},
+          ${auditEntry.actor},
+          ${JSON.stringify(auditEntry.payload)},
+          ${auditEntry.createdAt}
+        )
+      `;
+    });
 
     return;
   }
@@ -519,18 +629,28 @@ export async function deleteReport(reportId: string) {
       throw new Error("未找到对应的汇报记录。");
     }
 
+    const response = await fetch(targetBlob.url, { cache: "no-store" });
+
+    if (!response.ok) {
+      throw new Error(`读取 Blob 失败: ${targetBlob.pathname}`);
+    }
+
+    const report = (await response.json()) as UsageReport;
     await del(targetBlob.pathname);
+    await saveBlobAuditEntry(createDeletionAuditEntry(report, options.actor));
     return;
   }
 
   const reports = await readLocalReports();
+  const targetReport = reports.find((report) => report.id === normalizedReportId);
   const nextReports = reports.filter((report) => report.id !== normalizedReportId);
 
-  if (nextReports.length === reports.length) {
+  if (!targetReport || nextReports.length === reports.length) {
     throw new Error("未找到对应的汇报记录。");
   }
 
   await writeLocalReports(nextReports);
+  await appendLocalAuditEntry(createDeletionAuditEntry(targetReport, options.actor));
 }
 
 export async function getDashboardData(now = new Date()): Promise<DashboardData> {
@@ -666,11 +786,23 @@ function buildHeatmap(
   const columns: HeatmapColumn[] = [];
   const tasks: Record<string, HeatmapTask> = {};
   const currentHourIndex = HEATMAP_PAST_HOURS;
+  const sortedReports = [...reports].sort((left, right) => {
+    if (left.startMs !== right.startMs) {
+      return left.startMs - right.startMs;
+    }
+
+    if (left.endMs !== right.endMs) {
+      return left.endMs - right.endMs;
+    }
+
+    return left.id.localeCompare(right.id);
+  });
+  const allocations = buildReportAllocations(sortedReports, totalGpuCount);
 
   for (let index = 0; index < HEATMAP_TOTAL_HOURS; index += 1) {
     const slotStartMs = currentHourStartMs + (index - currentHourIndex) * HOUR_MS;
     const slotEndMs = slotStartMs + HOUR_MS;
-    const overlaps: SlotOverlap[] = reports
+    const overlaps: SlotOverlap[] = sortedReports
       .map((report) => {
         const overlapMs = getOverlapMs(slotStartMs, slotEndMs, report.startMs, report.endMs);
 
@@ -697,7 +829,6 @@ function buildHeatmap(
     const intensities = Array<number>(totalGpuCount).fill(0);
     const fillStarts = Array<number>(totalGpuCount).fill(0);
     const fillEnds = Array<number>(totalGpuCount).fill(0);
-    let cursor = 0;
 
     overlaps.forEach(({ report, overlapRatio }) => {
       if (!tasks[report.id]) {
@@ -717,16 +848,18 @@ function buildHeatmap(
       const fillStart = Math.max(0, Math.min(1, (overlapStartMs - slotStartMs) / HOUR_MS));
       const fillEnd = Math.max(fillStart, Math.min(1, (overlapEndMs - slotStartMs) / HOUR_MS));
 
-      for (
-        let allocationIndex = 0;
-        allocationIndex < report.gpuCount && cursor < totalGpuCount;
-        allocationIndex += 1
-      ) {
-        taskIds[cursor] = report.id;
-        intensities[cursor] = overlapRatio;
-        fillStarts[cursor] = fillStart;
-        fillEnds[cursor] = fillEnd;
-        cursor += 1;
+      const allocation = allocations.get(report.id);
+
+      if (!allocation || allocation.startRow === null || allocation.visibleGpuCount <= 0) {
+        return;
+      }
+
+      for (let offset = 0; offset < allocation.visibleGpuCount; offset += 1) {
+        const rowIndex = allocation.startRow + offset;
+        taskIds[rowIndex] = report.id;
+        intensities[rowIndex] = overlapRatio;
+        fillStarts[rowIndex] = fillStart;
+        fillEnds[rowIndex] = fillEnd;
       }
     });
 
@@ -759,4 +892,84 @@ function buildHeatmap(
       0,
     ),
   };
+}
+
+function buildReportAllocations(
+  reports: NormalizedReport[],
+  totalGpuCount: number,
+) {
+  const allocations = new Map<string, ReportAllocation>();
+  const activeReports: Array<{
+    id: string;
+    endMs: number;
+    startRow: number;
+    visibleGpuCount: number;
+  }> = [];
+  const occupiedRows = Array<boolean>(totalGpuCount).fill(false);
+
+  const releaseFinishedReports = (currentStartMs: number) => {
+    for (let index = activeReports.length - 1; index >= 0; index -= 1) {
+      const active = activeReports[index];
+
+      if (active.endMs > currentStartMs) {
+        continue;
+      }
+
+      for (let row = active.startRow; row < active.startRow + active.visibleGpuCount; row += 1) {
+        occupiedRows[row] = false;
+      }
+
+      activeReports.splice(index, 1);
+    }
+  };
+
+  const findContiguousBlock = (requiredRows: number) => {
+    if (requiredRows <= 0 || requiredRows > totalGpuCount) {
+      return null;
+    }
+
+    let streak = 0;
+
+    for (let row = 0; row < totalGpuCount; row += 1) {
+      streak = occupiedRows[row] ? 0 : streak + 1;
+
+      if (streak >= requiredRows) {
+        return row - requiredRows + 1;
+      }
+    }
+
+    return null;
+  };
+
+  for (const report of reports) {
+    releaseFinishedReports(report.startMs);
+
+    const visibleGpuCount = Math.min(report.gpuCount, totalGpuCount);
+    const startRow = findContiguousBlock(visibleGpuCount);
+
+    if (startRow === null) {
+      allocations.set(report.id, {
+        startRow: null,
+        visibleGpuCount: 0,
+      });
+      continue;
+    }
+
+    for (let row = startRow; row < startRow + visibleGpuCount; row += 1) {
+      occupiedRows[row] = true;
+    }
+
+    activeReports.push({
+      id: report.id,
+      endMs: report.endMs,
+      startRow,
+      visibleGpuCount,
+    });
+    allocations.set(report.id, {
+      startRow,
+      visibleGpuCount,
+    });
+  }
+
+  return allocations;
 }

@@ -26,6 +26,7 @@ export function ReportForm() {
     gpuCount: "8",
     durationHours: "12",
     startAt: getDefaultStartTime(),
+    writeToken: "",
   });
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -37,6 +38,11 @@ export function ReportForm() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(formState.writeToken
+          ? {
+              "x-write-token": formState.writeToken,
+            }
+          : {}),
       },
       body: JSON.stringify({
         username: formState.username,
@@ -141,6 +147,19 @@ export function ReportForm() {
             value={formState.startAt}
             onChange={(event) =>
               setFormState((current) => ({ ...current, startAt: event.target.value }))
+            }
+          />
+        </label>
+
+        <label className={styles.field}>
+          <span>写入口令</span>
+          <input
+            maxLength={120}
+            placeholder="如有配置再填写"
+            type="password"
+            value={formState.writeToken}
+            onChange={(event) =>
+              setFormState((current) => ({ ...current, writeToken: event.target.value }))
             }
           />
         </label>

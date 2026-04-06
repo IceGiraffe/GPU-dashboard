@@ -1,9 +1,24 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { createUsageReport, saveReport, validateReportInput } from "@/lib/gpu-reports";
+import {
+  assertWriteAccess,
+  createErrorResponse,
+  enforceRateLimit,
+  getClientIp,
+} from "@/lib/security";
 
 export async function POST(request: Request) {
   try {
+    const clientIp = getClientIp(request);
+    enforceRateLimit({
+      scope: "report-write",
+      key: clientIp,
+      limit: 20,
+      windowMs: 5 * 60 * 1000,
+    });
+    assertWriteAccess(request);
+
     const payload = await request.json();
     const input = validateReportInput(payload);
     const report = createUsageReport(input);
@@ -15,15 +30,6 @@ export async function POST(request: Request) {
       report,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "提交失败，请稍后再试。";
-
-    return NextResponse.json(
-      {
-        error: message,
-      },
-      {
-        status: 400,
-      },
-    );
+    return createErrorResponse(error, "提交失败，请稍后再试。");
   }
 }
