@@ -42,4 +42,8 @@ npm run dev
 
 如果未配置 Postgres，但配置了 `BLOB_READ_WRITE_TOKEN`，应用仍然会退回到 Vercel Blob 存储。
 
-如果两者都未配置，Vercel 的无状态文件系统无法长期保存本地 JSON，因此线上提交记录不会可靠持久化。
+如果两者都未配置：
+
+- 本地开发仍会使用 `data/reports.json`
+- Vercel 线上环境不会再尝试写入只读文件系统
+- 首页可以正常打开，但提交任务会提示你先配置 Postgres 或 Blob

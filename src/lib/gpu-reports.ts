@@ -104,6 +104,14 @@ function isPostgresEnabled() {
   return Boolean(getPostgresConnectionString());
 }
 
+function isVercelRuntime() {
+  return Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
+}
+
+function canUseLocalFileStore() {
+  return !isVercelRuntime();
+}
+
 function safeTrim(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -181,6 +189,10 @@ export function createUsageReport(input: ReportInput): UsageReport {
 }
 
 async function ensureLocalStore() {
+  if (!canUseLocalFileStore()) {
+    throw new Error("Vercel 线上环境不能使用本地 JSON 存储。请配置 Postgres 或 Blob。");
+  }
+
   await mkdir(DATA_DIR, { recursive: true });
 
   try {
@@ -191,6 +203,10 @@ async function ensureLocalStore() {
 }
 
 async function readLocalReports() {
+  if (!canUseLocalFileStore()) {
+    return [];
+  }
+
   await ensureLocalStore();
   const raw = await readFile(DATA_FILE, "utf8");
   const parsed = JSON.parse(raw) as UsageReport[];
@@ -198,6 +214,10 @@ async function readLocalReports() {
 }
 
 async function writeLocalReports(reports: UsageReport[]) {
+  if (!canUseLocalFileStore()) {
+    throw new Error("当前部署未配置持久化存储。请先配置 Postgres 或 Blob。");
+  }
+
   await ensureLocalStore();
   await writeFile(DATA_FILE, `${JSON.stringify(reports, null, 2)}\n`, "utf8");
 }
@@ -482,6 +502,10 @@ export function getStorageModeLabel() {
 
   if (isBlobEnabled()) {
     return "Vercel Blob";
+  }
+
+  if (isVercelRuntime()) {
+    return "未配置持久化";
   }
 
   return "本地 JSON";
