@@ -74,7 +74,7 @@ export function ReportForm() {
       </div>
 
       <div className={styles.toolbar}>
-        <label className={`${styles.field} ${styles.fieldUser}`}>
+        <label className={styles.field}>
           <span>用户名</span>
           <input
             required
@@ -87,7 +87,7 @@ export function ReportForm() {
           />
         </label>
 
-        <label className={`${styles.field} ${styles.fieldTask}`}>
+        <label className={styles.field}>
           <span>任务名</span>
           <input
             required

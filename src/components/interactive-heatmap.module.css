@@ -72,13 +72,13 @@
   transform: translateX(-50%);
   background: linear-gradient(
     180deg,
-    rgba(217, 90, 72, 0.24),
-    rgba(217, 90, 72, 0.92),
-    rgba(217, 90, 72, 0.24)
+    rgba(60, 108, 138, 0.1),
+    rgba(60, 108, 138, 0.46),
+    rgba(60, 108, 138, 0.1)
   );
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.34),
-    0 0 18px rgba(217, 90, 72, 0.18);
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 8px rgba(60, 108, 138, 0.08);
   pointer-events: none;
   z-index: 2;
 }

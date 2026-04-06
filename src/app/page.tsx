@@ -101,7 +101,7 @@ export default async function HomePage() {
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <h2>GPU 卡位 × 时间图</h2>
-          <p>默认从当前整点起显示未来 24 小时，可扩展查看 3 天和 7 天。</p>
+          <p>默认定位当前整点，可查看过去 7 天到未来 7 天。</p>
         </div>
 
         <div className={styles.legend}>

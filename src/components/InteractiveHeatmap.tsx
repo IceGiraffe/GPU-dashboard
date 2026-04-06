@@ -11,7 +11,6 @@ type InteractiveHeatmapProps = {
 
 type HoverState = {
   rowIndex: number;
-  columnIndex: number;
   task: HeatmapTask | null;
   intensity: number;
   slotStart: string;
@@ -52,6 +51,18 @@ function shouldShowGpuLabel(rowIndex: number, totalGpuCount: number) {
 
 function getOpacity(intensity: number) {
   return Math.max(0.25, Math.min(1, intensity));
+}
+
+function getHourFromColumnLabel(label: string) {
+  return Number.parseInt(label.slice(0, 2), 10);
+}
+
+function isFourHourBoundary(label: string) {
+  return getHourFromColumnLabel(label) % 4 === 0;
+}
+
+function isMidnightBoundary(label: string) {
+  return getHourFromColumnLabel(label) === 0;
 }
 
 export function InteractiveHeatmap({
@@ -192,6 +203,24 @@ export function InteractiveHeatmap({
 
     for (let columnIndex = visibleStartIndex; columnIndex <= visibleEndIndex; columnIndex += 1) {
       const column = heatmap.columns[columnIndex];
+
+      if (!isFourHourBoundary(column.label)) {
+        continue;
+      }
+
+      const x = Math.round(columnIndex * cellWidth - scrollLeft) + 0.5;
+      context.beginPath();
+      context.strokeStyle = isMidnightBoundary(column.label)
+        ? "rgba(20, 81, 111, 0.3)"
+        : "rgba(45, 71, 89, 0.12)";
+      context.lineWidth = isMidnightBoundary(column.label) ? 1.5 : 1;
+      context.moveTo(x, 0);
+      context.lineTo(x, HEADER_HEIGHT);
+      context.stroke();
+    }
+
+    for (let columnIndex = visibleStartIndex; columnIndex <= visibleEndIndex; columnIndex += 1) {
+      const column = heatmap.columns[columnIndex];
       const x = columnIndex * cellWidth - scrollLeft;
       const showDateLabel = column.dateLabel !== null;
       const showTimeLabel = rangeHours === 168 ? false : columnIndex % labelInterval === 0;
@@ -255,18 +284,41 @@ export function InteractiveHeatmap({
         const right = Math.round((columnIndex + 1) * cellWidth - scrollLeft);
         const width = Math.max(1, right - left);
         const taskId = column.taskIds[rowIndex];
+        const fillStart = column.fillStarts[rowIndex];
+        const fillEnd = column.fillEnds[rowIndex];
+
+        context.fillStyle = "rgba(33, 128, 111, 0.08)";
+        context.fillRect(left, top, width, ROW_HEIGHT);
 
         if (taskId) {
           const task = heatmap.tasks[taskId];
+          const busyLeft = left + Math.round(width * fillStart);
+          const busyRight = left + Math.round(width * fillEnd);
+          const busyWidth = Math.max(1, busyRight - busyLeft);
           context.globalAlpha = getOpacity(column.intensities[rowIndex]);
           context.fillStyle = task?.color ?? "rgba(33, 118, 166, 0.7)";
-          context.fillRect(left, top, width, ROW_HEIGHT);
+          context.fillRect(busyLeft, top, busyWidth, ROW_HEIGHT);
           context.globalAlpha = 1;
-        } else {
-          context.fillStyle = "rgba(33, 128, 111, 0.08)";
-          context.fillRect(left, top, width, ROW_HEIGHT);
         }
       }
+    }
+
+    for (let columnIndex = visibleStartIndex; columnIndex <= visibleEndIndex; columnIndex += 1) {
+      const column = heatmap.columns[columnIndex];
+
+      if (!isFourHourBoundary(column.label)) {
+        continue;
+      }
+
+      const x = Math.round(columnIndex * cellWidth - scrollLeft) + 0.5;
+      context.beginPath();
+      context.strokeStyle = isMidnightBoundary(column.label)
+        ? "rgba(20, 81, 111, 0.34)"
+        : "rgba(45, 71, 89, 0.14)";
+      context.lineWidth = isMidnightBoundary(column.label) ? 1.5 : 1;
+      context.moveTo(x, 0);
+      context.lineTo(x, bodyHeight);
+      context.stroke();
     }
   }, [
     bodyHeight,
@@ -312,7 +364,6 @@ export function InteractiveHeatmap({
     hoveredKeyRef.current = key;
     setHovered({
       rowIndex,
-      columnIndex,
       task,
       intensity: column.intensities[rowIndex],
       slotStart: column.slotStart,
@@ -397,7 +448,7 @@ export function InteractiveHeatmap({
                 className={styles.currentTimeMarker}
                 style={{
                   left: `${markerLeft}px`,
-                  width: `${Math.max(2, Math.min(6, cellWidth * 0.18))}px`,
+                  width: `${Math.max(1, Math.min(3, cellWidth * 0.1))}px`,
                 }}
               />
             ) : null}

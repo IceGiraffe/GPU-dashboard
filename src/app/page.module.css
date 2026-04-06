@@ -191,69 +191,6 @@
   font-weight: 600;
 }
 
-.heatmapScroll {
-  overflow: auto;
-  padding-bottom: 2px;
-}
-
-.heatmapBoard {
-  min-width: 700px;
-  display: grid;
-  gap: 3px;
-}
-
-.axisHeader,
-.heatmapRow {
-  display: grid;
-  gap: 4px;
-  grid-template-columns: 34px minmax(0, 1fr);
-  align-items: center;
-}
-
-.axisCorner,
-.gpuLabel {
-  color: var(--muted);
-  font-size: 0.7rem;
-  text-align: right;
-}
-
-.timeAxis,
-.heatmapCells {
-  display: grid;
-  gap: 0;
-  grid-template-columns: repeat(24, minmax(18px, 1fr));
-}
-
-.timeLabel {
-  min-width: 18px;
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.66rem;
-}
-
-.timeLabelOverbooked {
-  color: var(--danger);
-  font-weight: 700;
-}
-
-.heatmapBody {
-  display: grid;
-  gap: 0;
-}
-
-.heatmapCell {
-  height: 8px;
-  border-radius: 0;
-}
-
-.heatmapCellUsed {
-  background: linear-gradient(135deg, rgba(33, 118, 166, 0.28), rgba(20, 81, 111, 0.64));
-}
-
-.heatmapCellFree {
-  background: linear-gradient(135deg, rgba(33, 128, 111, 0.05), rgba(33, 128, 111, 0.14));
-}
-
 .main {
   display: grid;
   gap: 16px;
@@ -369,7 +306,4 @@
     justify-content: start;
   }
 
-  .heatmapBoard {
-    min-width: 560px;
-  }
 }

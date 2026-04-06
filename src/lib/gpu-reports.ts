@@ -47,11 +47,11 @@ export type HeatmapColumn = {
   dateLabel: string | null;
   slotStart: string;
   slotEnd: string;
-  averageUsedGpuCount: number;
-  occupiedGpuCount: number;
   overbookedGpuCount: number;
   taskIds: Array<string | null>;
   intensities: number[];
+  fillStarts: number[];
+  fillEnds: number[];
 };
 
 export type HeatmapTask = {
@@ -69,7 +69,6 @@ export type HeatmapData = {
   tasks: Record<string, HeatmapTask>;
   currentHourIndex: number;
   totalHours: number;
-  peakAverageUsedGpuCount: number;
   peakOverbookedGpuCount: number;
 };
 
@@ -671,7 +670,6 @@ function buildHeatmap(
   for (let index = 0; index < HEATMAP_TOTAL_HOURS; index += 1) {
     const slotStartMs = currentHourStartMs + (index - currentHourIndex) * HOUR_MS;
     const slotEndMs = slotStartMs + HOUR_MS;
-    const averageUsedGpuCount = getAverageUsedGpuCount(reports, slotStartMs, slotEndMs);
     const overlaps: SlotOverlap[] = reports
       .map((report) => {
         const overlapMs = getOverlapMs(slotStartMs, slotEndMs, report.startMs, report.endMs);
@@ -697,6 +695,8 @@ function buildHeatmap(
 
     const taskIds = Array<string | null>(totalGpuCount).fill(null);
     const intensities = Array<number>(totalGpuCount).fill(0);
+    const fillStarts = Array<number>(totalGpuCount).fill(0);
+    const fillEnds = Array<number>(totalGpuCount).fill(0);
     let cursor = 0;
 
     overlaps.forEach(({ report, overlapRatio }) => {
@@ -712,6 +712,11 @@ function buildHeatmap(
         };
       }
 
+      const overlapStartMs = Math.max(slotStartMs, report.startMs);
+      const overlapEndMs = Math.min(slotEndMs, report.endMs);
+      const fillStart = Math.max(0, Math.min(1, (overlapStartMs - slotStartMs) / HOUR_MS));
+      const fillEnd = Math.max(fillStart, Math.min(1, (overlapEndMs - slotStartMs) / HOUR_MS));
+
       for (
         let allocationIndex = 0;
         allocationIndex < report.gpuCount && cursor < totalGpuCount;
@@ -719,6 +724,8 @@ function buildHeatmap(
       ) {
         taskIds[cursor] = report.id;
         intensities[cursor] = overlapRatio;
+        fillStarts[cursor] = fillStart;
+        fillEnds[cursor] = fillEnd;
         cursor += 1;
       }
     });
@@ -734,11 +741,11 @@ function buildHeatmap(
       dateLabel,
       slotStart: new Date(slotStartMs).toISOString(),
       slotEnd: new Date(slotEndMs).toISOString(),
-      averageUsedGpuCount,
-      occupiedGpuCount: Math.min(scheduledGpuCount, totalGpuCount),
       overbookedGpuCount: Math.max(scheduledGpuCount - totalGpuCount, 0),
       taskIds,
       intensities,
+      fillStarts,
+      fillEnds,
     });
   }
 
@@ -747,10 +754,6 @@ function buildHeatmap(
     tasks,
     currentHourIndex,
     totalHours: HEATMAP_TOTAL_HOURS,
-    peakAverageUsedGpuCount: columns.reduce(
-      (max, column) => Math.max(max, column.averageUsedGpuCount),
-      0,
-    ),
     peakOverbookedGpuCount: columns.reduce(
       (max, column) => Math.max(max, column.overbookedGpuCount),
       0,
