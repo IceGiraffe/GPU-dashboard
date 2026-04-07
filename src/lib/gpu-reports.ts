@@ -667,7 +667,7 @@ export async function getDashboardData(now = new Date()): Promise<DashboardData>
     .filter((report) => {
       return report.startMs <= currentTime && currentTime < report.endMs;
     })
-    .sort((left, right) => new Date(left.endAt).getTime() - new Date(right.endAt).getTime());
+    .sort((left, right) => new Date(right.endAt).getTime() - new Date(left.endAt).getTime());
 
   const upcomingReports = normalizedReports
     .filter((report) => report.startMs > currentTime)
@@ -787,12 +787,12 @@ function buildHeatmap(
   const tasks: Record<string, HeatmapTask> = {};
   const currentHourIndex = HEATMAP_PAST_HOURS;
   const sortedReports = [...reports].sort((left, right) => {
-    if (left.startMs !== right.startMs) {
-      return left.startMs - right.startMs;
+    if (left.endMs !== right.endMs) {
+      return right.endMs - left.endMs;
     }
 
-    if (left.endMs !== right.endMs) {
-      return left.endMs - right.endMs;
+    if (left.startMs !== right.startMs) {
+      return left.startMs - right.startMs;
     }
 
     return left.id.localeCompare(right.id);
@@ -814,12 +814,12 @@ function buildHeatmap(
       })
       .filter((item) => item.overlapMs > 0)
       .sort((left, right) => {
-        if (left.report.startMs !== right.report.startMs) {
-          return left.report.startMs - right.report.startMs;
-        }
-
         if (left.report.endMs !== right.report.endMs) {
           return left.report.endMs - right.report.endMs;
+        }
+
+        if (left.report.startMs !== right.report.startMs) {
+          return left.report.startMs - right.report.startMs;
         }
 
         return left.report.id.localeCompare(right.report.id);
@@ -850,12 +850,22 @@ function buildHeatmap(
 
       const allocation = allocations.get(report.id);
 
-      if (!allocation || allocation.startRow === null || allocation.visibleGpuCount <= 0) {
+      if (!allocation) {
         return;
       }
 
-      for (let offset = 0; offset < allocation.visibleGpuCount; offset += 1) {
-        const rowIndex = allocation.startRow + offset;
+      const drawStartRow = allocation.startRow ?? 0;
+      const drawCount =
+        allocation.startRow === null
+          ? Math.min(report.gpuCount, totalGpuCount)
+          : allocation.visibleGpuCount;
+
+      if (drawCount <= 0) {
+        return;
+      }
+
+      for (let offset = 0; offset < drawCount; offset += 1) {
+        const rowIndex = drawStartRow + offset;
         taskIds[rowIndex] = report.id;
         intensities[rowIndex] = overlapRatio;
         fillStarts[rowIndex] = fillStart;
