@@ -787,12 +787,12 @@ function buildHeatmap(
   const tasks: Record<string, HeatmapTask> = {};
   const currentHourIndex = HEATMAP_PAST_HOURS;
   const sortedReports = [...reports].sort((left, right) => {
-    if (left.startMs !== right.startMs) {
-      return left.startMs - right.startMs;
+    if (left.endMs !== right.endMs) {
+      return right.endMs - left.endMs;
     }
 
-    if (left.endMs !== right.endMs) {
-      return left.endMs - right.endMs;
+    if (left.startMs !== right.startMs) {
+      return left.startMs - right.startMs;
     }
 
     return left.id.localeCompare(right.id);
