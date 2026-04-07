@@ -667,7 +667,7 @@ export async function getDashboardData(now = new Date()): Promise<DashboardData>
     .filter((report) => {
       return report.startMs <= currentTime && currentTime < report.endMs;
     })
-    .sort((left, right) => new Date(left.endAt).getTime() - new Date(right.endAt).getTime());
+    .sort((left, right) => new Date(right.endAt).getTime() - new Date(left.endAt).getTime());
 
   const upcomingReports = normalizedReports
     .filter((report) => report.startMs > currentTime)
